@@ -1,6 +1,6 @@
+// src/context/TodosContext.jsx
 import { createContext, useContext, useEffect, useMemo, useReducer } from "react";
 
-// ---- reducer de tarefas ----
 function reducer(state, action) {
     switch (action.type) {
         case "add": {
@@ -12,17 +12,16 @@ function reducer(state, action) {
             return [...state, { id, text, done: false }];
         }
         case "toggle":
-            return state.map((t) => (t.id === action.id ? { ...t, done: !t.done } : t));
+            return state.map(t => (t.id === action.id ? { ...t, done: !t.done } : t));
         case "remove":
-            return state.filter((t) => t.id !== action.id);
+            return state.filter(t => t.id !== action.id);
         case "clearCompleted":
-            return state.filter((t) => !t.done);
+            return state.filter(t => !t.done);
         default:
             return state;
     }
 }
 
-// ---- lazy init lendo do localStorage ----
 function initFromStorage(storageKey) {
     try {
         const raw = localStorage.getItem(storageKey);
@@ -33,32 +32,25 @@ function initFromStorage(storageKey) {
     }
 }
 
-// ---- contexts separados ----
 const TodosStateContext = createContext(null);
 const TodosActionsContext = createContext(null);
 
 export function TodosProvider({ children, storageKey = "tasks" }) {
-    const [state, dispatch] = useReducer(
-        reducer,
-        storageKey,
-        initFromStorage // recebe storageKey no 1º render
-    );
+    const [state, dispatch] = useReducer(reducer, storageKey, initFromStorage);
 
-    // persiste sempre que o estado muda
     useEffect(() => {
         try {
             localStorage.setItem(storageKey, JSON.stringify(state));
         } catch { }
     }, [state, storageKey]);
 
-    // ações estáveis (mesma referência entre renders)
     const actions = useMemo(
         () => ({
             add: (text) => {
                 const t = String(text ?? "").trim();
-                if (!t) return false;           // inválido
+                if (!t) return false;
                 dispatch({ type: "add", text: t });
-                return true;                    // válido -> pode limpar o input no componente
+                return true; // <- importante pro input limpar
             },
             toggle: (id) => dispatch({ type: "toggle", id }),
             remove: (id) => dispatch({ type: "remove", id }),
@@ -76,22 +68,18 @@ export function TodosProvider({ children, storageKey = "tasks" }) {
     );
 }
 
-// ---- hooks de consumo ----
 export function useTodosState() {
     const ctx = useContext(TodosStateContext);
-    if (ctx === null)
-        throw new Error("useTodosState deve ser usado dentro de <TodosProvider>");
+    if (ctx === null) throw new Error("useTodosState deve ser usado dentro de <TodosProvider>");
     return ctx;
 }
 
 export function useTodosActions() {
     const ctx = useContext(TodosActionsContext);
-    if (ctx === null)
-        throw new Error("useTodosActions deve ser usado dentro de <TodosProvider>");
+    if (ctx === null) throw new Error("useTodosActions deve ser usado dentro de <TodosProvider>");
     return ctx;
 }
 
-// Derivados (counters) como hook separado para reuso
 export function useTodosStats() {
     const tasks = useTodosState();
     const total = tasks.length;
